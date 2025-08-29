@@ -1,0 +1,375 @@
+---
+title: "CS5801 Coursework SUBMISSION Template Proforma"
+author: '2451943'
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+version: 1
+---
+
+# 0. Instructions 
+
+```{r}
+library(tidyverse)       # Used for data manipulation and visualization (includes dplyr and ggplot2)
+library(skimr)           # Provides comprehensive data summaries and insights
+library(ggplot2)         # Creates detailed and customizable data visualizations
+library(car)             # Used for statistical modeling and multicollinearity checks (e.g., VIF calculation)
+library(naniar)          # Assists in handling and visualizing missing data
+library(caret)           # Facilitates data preprocessing, modeling, and validation
+library(pROC)            # Generates ROC curves and calculates AUC for model evaluation 
+citation("pROC")
+```
+
+
+# 1. Organise and clean the data
+
+## 1.1 Subset the data into the specific dataset allocated
+ 
+```{r}
+# Only change the value for SID 
+# Assign your student id into the variable SID, for example:
+SID <- 2451943                                 # This is an example, replace 2101234 with your actual ID
+SIDoffset <- (SID %% 50) + 1    # Your SID mod 50 + 1
+
+load("student_data.Rda")
+# Now subseting the student data set
+# Picking every 50th observation starting from your offset
+mydf <- student_data_analysis[seq(from=SIDoffset,to=nrow(student_data_analysis),by=50),]
+# The first rows
+head(mydf)
+# Displaying the structure of the subsetted data
+str(mydf)
+```
+
+Each record contained the label of the observation and by including every 50th record, the subset starts at the offset, which is my student ID. It reduces the element of prejudice and ensures that the retrieved sample will be evenly spread all over the data set. The following variables are present in the dataset:
+
+1. student_id: An identification number given to each student.
+2. entry_exam_mark: The number that represents the student’s entry exam score.
+3. sat_score: SAT measure the student’s aptitude and passe a score of between 200 and 1600.
+4. percentage_absence: The actual number of days the pupil was absent from class as compared to the total possible class days.
+5. free_school_meals: Shall contain information as to whether the student in question was eligible for receiving a free lunch.
+6. grade_point_average: An equivalent figure to the student’s GPA, which is a letter graded performance indicator of a student.
+7. finished.extended.project: Checked if the student completed an extended task or not.
+8. month_of_birth: The student's birth month.
+9. commute_method: The type of transport used by the student for example, by walk, by bus.
+
+This subset ensures the data set does not go out of hand while at the same time helps in developing hypothesis for the rest of the variety.
+
+
+## 1.2 Data quality plan
+ 
+
+For analysis, the clean data set are paramount. To guarantee the quality of the data, the following actions were prepared and carried out:
+
+1. Checking for Missing Values: Exploratory data analysis by using some of the tool which are “vis_miss” to have a look at missing data in all the columns. Of considerable significance are the predictors such as “sat_score” and “grade_point_average” because these research findings are directly linked to those factors.
+
+2. Examining Outliers: Determining outliers by such measures as z-scores with regard to numerical columns such as “entry_exam_mark” and “percentage_absence”. For outliers to be suggestive of visually, make use of the box plots.
+
+3. Verifying Categorical Variables: Ensuring that categories are correct especially when working with variables with many options such as the “commute_method” one may misspell a word. In this case it might be recommended to standardise the already introduced inconsistent entries to keep the consistency.
+
+4. Detecting Duplicate Records: Search for twofold rows, which can skew the results, if accurate duplicate rows are being searched, then any duplicates which stands identified will not be considered.
+
+
+5. Verifying Data Ranges: In searching for possible data input issues, I will isolate high values and low values of quantitative data input variables such as sat_score and grade_point_average against the range which are expected.
+
+These procedure provide a systematic approach of preparing the data to allow for result oriented and reliable analysis.
+
+
+
+
+
+## 1.3 Data quality findings
+
+After applying the plan, I found a few issues that needed attention:
+
+### Issue 1
+```{r}
+# Check for missing values
+vis_miss(mydf)
+```
+there are no missing values found 
+
+### Issue 2
+
+```{r}
+# Checking unique values in `commute_method`
+unique(mydf$commute_method)
+```
+Since the data was gathered by collecting self-completed online survey it included misspelling and capitalization in the “commute_method” variable (Bicycle-Bicicle) and Bus- bus). For the results arriving at these to be reliable, these must be standardised.
+
+### Issue 3
+
+```{r}
+# Checking for duplicate rows
+duplicates <- mydf[duplicated(mydf), ]
+duplicates
+```
+This is an important benefit of the dataset as it eliminated the possibility of having similar rows in the data analysed. This was done by cross-checking, we ran a cheque and the results do not include repeat values.
+
+### Summary of Findings
+These results show that even though there are no repeated and missing rows, there are several categorical variable discrepancies that need to be resolved to ensure tidy data for analysis.
+
+
+ 
+## 1.4 Data cleaning  
+ 
+I cleaned the dataset by doing the following after determining the problems with the data quality:
+
+
+### Addressing Issue 1
+### Resolving Inconsistent Groups
+There other notable mistakes, for instance; the name “Bicicle” was misspelt with extra c and we have capital ‘C’ sensitivity with ‘Car’ in `commute_method`. In order to avoid variability in measurement, these were made fixed.
+
+```{r}
+# Standardize the categories in commute_method
+mydf$commute_method <- dplyr::recode(mydf$commute_method, 
+                                     "Bicicle" = "Bicycle", 
+                                     "car" = "Car")
+# Verify the correction
+unique(mydf$commute_method)
+```
+
+### Addressing Issue 2
+### Removing Duplicate Rows
+Although, the quality cheque did not force duplicates into a row still it must be provided to remove them if they are present in other extentions in future.
+```{r}
+# Remove duplicate rows if any exist
+mydf <- mydf[!duplicated(mydf), ]
+# Verify no duplicates remain
+nrow(mydf)
+```
+
+
+### Addressing Issue 3
+### Verifying Data Ranges
+Even though the data quality checks revealed no missing values, ongoing observation is crucial. Predictive modeling or mean/mode imputation for numerical or categorical data might be used if crucial variables have missing values that is why important numbers such as "sat_score" and "grade_point_average" were examined to make sure their values fell within the predicted ranges. Additional research or adjustment would be necessary for any numbers that fall outside of these ranges.
+
+```{r}
+# Summary statistics to verify data ranges
+summary(mydf$sat_score)
+summary(mydf$grade_point_average)
+```
+
+### Summary of Cleaning
+The data cleaning procedure eliminated irrational values, fixed typographical and categorical variable inconsistencies, and verified that there were no duplicate records. The dataset is now ready for precise and trustworthy analysis in the stages that follow thanks to these actions.
+
+
+# 2. Exploratory Data Analysis (EDA)
+
+## 2.1 EDA plan
+
+The goal here is to examine the data in great detail and determine what is happening. My goal is to gain an understanding of the distribution of the data and identify any noteworthy trends, particularly between the dependent variables such as "grade_point_average" and the other variables in the dataset. The plan is as follows:
+
+1. To analyze the distributions of numerical variables like "sat_score" and "grade_point_average", I used histograms to illustrate them.
+2. To determine the frequency of each category, bar graphs were used to evaluate categorical data, such as "commute_method".
+3. Examining Relationships Between Variables: Using scatter plots, relationships between variables were investigated, such as the correlation between "sat_score" and "grade_point_average". To find patterns, numerical results were compared with categorical variables.
+
+
+### Element 1
+The first thing I looked at was how "grade_point_average" is spread out. I used histogram to check this.
+
+```{r}
+# Histogram of grade_point_average
+hist(mydf$grade_point_average, 
+     main = "GPA Distribution", 
+     xlab = "GPA", 
+     col = "skyblue", 
+     breaks = 10)
+```
+What the histogram shows: This plot highlights that most GPAs are between 2.0 and 3.0, with more than 40 observations in this range. It is useful for understanding where the majority of students are performing and identifying any unusual or extreme values.
+
+
+### Element 2
+Next, I checked if there is any connection between SAT scores and GPA. I used scatter plot to check correlation between SAT scores and GPA.
+```{r}
+# Scatter plot of sat_score vs grade_point_average
+plot(mydf$sat_score, mydf$grade_point_average, 
+     main = "SAT vs GPA", 
+     xlab = "SAT Score", 
+     ylab = "GPA", 
+     col = "darkgreen", 
+     pch = 19)
+```
+What the scatter plot shows: This plot shows a positive relationship between SAT scores and GPA. It indicates that students with higher SAT scores tend to have higher GPAs, providing evidence of a link between academic aptitude and performance.
+
+### Element 3
+Finally, I wanted to see how students get to school. I used bar plot because it is perfect for showing the frequency of different commuting methods.
+
+```{r}
+# Bar plot of commute_method
+barplot(table(mydf$commute_method), 
+        main = "How Students Commute", 
+        xlab = "Commute Method", 
+        ylab = "Count", 
+        col = "lightcoral")
+```
+What the bar plot shows: The bar plot reveals that most students commute by bus, with over 120 students in this category. Next are cars, used by around 90 students, followed by walking (approximately 80 students), bicycles (around 60 students), and finally, the "other" category (about 40 students). This is giving a clear picture of transportation patterns and their distribution.
+
+
+
+# 3. Modelling
+
+## 3.1 Explaination
+
+
+The goal of this analysis is to model the variable "grade_point_average" to understand the factors that affect student performance. Here are the actions I did and the justifications behind my decisions:
+
+### Methods Used
+I used a linear regression model for this analysis because "grade_point_average" is a continuous variable, and linear regression is a straightforward and interpretable method for such cases. It allows me to assess how each independent  variable contributes to changes in GPA.
+
+### Incorporating EDA Findings
+From the exploratory data analysis:
+1. SAT Scores: A positive relationship between SAT scores and GPA was identified. This variable was included as a key predictor in the model.
+2. Commute Method: Student performance may be impacted by various commuting strategies, whether as a result of resource accessibility or commute time. Standardization was followed by the inclusion of this category variable.
+3. Absence Percentage: Academic performance is probably impacted by this variable because lower GPAs may be associated with higher absence rates.
+
+
+### Model Selection Approach
+To refine it, I used stepwise selection after starting with a complete model that had all possible predictors ("sat_score", "percentage_absence", "commute_method", etc.). The objective was to eliminate variables that didn't significantly affect GPA prediction in order to strike a compromise between model complexity and interpretability.
+
+### Addressing Weaknesses
+To ensure the model was robust:
+- Multicollinearity Check: I calculated variance inflation factors (VIFs) to identify and address multicollinearity among predictors.
+- Residual Analysis: In order to verify that the linear regression assumptions were true and to check for homoscedasticity, I looked at residual plots.
+
+### Alternative Approaches Considered
+Although the main technique was linear regression, I also thought about using polynomial regression to identify any possible nonlinear correlations. The SAT and GPA scatter plot, however, indicated a linear trend, therefore a more straightforward linear model was used.
+
+### Summary
+The finished model offers an understandable and straightforward framework for figuring out what influences GPA. The study guarantees dependability and practical applicability by correcting model flaws and integrating insights from EDA.
+
+
+
+## 3.2 Provide a model for Grade point average
+"sat_score", "percentage_absence", and a few levels of "commute_method" were kept in the final model. The implementation is shown below:
+
+### Proposed model
+
+```{r}
+# Fitting the final linear regression model
+final_model <- lm(grade_point_average ~ sat_score + percentage_absence + commute_method, data = mydf)
+summary(final_model)
+```
+
+### Proposed model diagnostics
+```{r}
+# Checking residuals
+par(mfrow = c(2, 2))
+plot(final_model)
+
+# Variance Inflation Factor (VIF)
+library(car)
+vif(final_model)
+```
+
+### Proposed model intepretation
+The linear regression model provides the following insights:
+1. SAT Score: Positively correlated with GPA, indicating that higher SAT scores lead to better academic results.
+2. Absence Percentage: inversely correlated, indicating that greater absences lower GPA.
+3. Commute Method: When compared to the reference group, "Other" commuting methods significantly lowered GPA.
+
+The model has a robust fit and significant predictors, accounting for 63% of the variance in GPA (Adjusted R-squared = 0.6279).
+
+
+```{r}
+#optional
+
+```
+
+
+# 4. Modelling another dependent variable
+
+## 4.1 Modelling the Likelihood of Completing an Extended Project
+
+### Objective
+This section focuses on using logistic regression to predict if a student has finished an extended project (`completed.extended.project`). The binary target variable is Yes/No.
+
+#### Approach
+Because logistic regression works well with binary outcomes, it was chosen. To guarantee compatibility, the target variable was recoded to 0 (No) and 1 (Yes). To solve possible convergence problems and enhance model performance, predictor variables were scaled.
+
+#### Including EDA Results: 
+SAT Score ("sat_score_scaled"): Added because of its noted beneficial association with academic achievement.
+Percentage Absence ("percentage_absence_scaled"): Added to take into consideration its probable detrimental effect on academic performance.
+Commute Method ("commute_method"): The possible impact of the commute method on project completion was assessed.
+
+
+
+### Model Selection and Justification
+Every variable that was found using EDA was one of the first predictors. To improve the model, stepwise selection was employed, keeping predictors that made a substantial contribution. When multicollinearity was examined using GVIF values, there were no problems found. Notwithstanding modifications, the model's difficulties with convergence and explanatory power raised the possibility of data restrictions.
+
+   
+### Alternative Approaches: 
+Although decision trees were thought to capture non-linear relationships, they were not included in order to maintain the interpretability of the model.
+Lasso and other regularization techniques were investigated but not used because of the dataset's simplicity.
+
+
+### Proposed Model
+Included as predictors in the final logistic regression model were "sat_score", "percentage_absence", and certain levels of "commute_method":
+
+
+```{r}
+# Recoding target variable to binary
+mydf$completed.extended.project <- ifelse(mydf$completed.extended.project == "Yes", 1, 0)
+
+# Scaling numerical variables
+mydf$sat_score_scaled <- scale(mydf$sat_score)
+mydf$percentage_absence_scaled <- scale(mydf$percentage_absence)
+
+# Fit logistic regression model
+final_log_model <- glm(completed.extended.project ~ sat_score_scaled + percentage_absence_scaled + commute_method, 
+                       family = binomial, data = mydf, control = list(maxit = 50))
+summary(final_log_model)
+
+# Diagnostics
+library(car)
+vif(final_log_model)
+```
+
+### Model intepretation
+
+The following are the outcomes of the logistic regression model:
+
+1. Intercept: The log-odds of finishing a lengthy project when all predictors are at their reference levels are represented by the intercept value (-28.57). According to the p-value of 1.0, the intercept is not statistically significant.
+2. SAT Score ("sat_score_scaled"): There appears to be no significant correlation between scaled SAT scores and project completion, as indicated by the coefficient, which is almost zero (2.38e-14). Its insignificance is further supported by the huge standard error.
+3. Percentage Absence ("percentage_absence_scaled").The coefficient (-1.53e-14) is close to zero, suggesting that absence rates have no discernible impact on project completion. 
+4. Commute Method ("commute_method): - There is no significant correlation between commute method and project completion likelihood, as each category (walking, car, bus, and other) has coefficients near zero with huge standard errors.
+
+### Observations and Limitations
+
+According to the null deviation (0.00) and residual deviance (3.14e-10), which are almost equal, the model is unable to distinguish between students who finished and those who did not finish projects.
+An additional sign of possible overfitting or problems with the data structure is the extremely low AIC value (14) in this case.
+
+Issues with Convergence: - Due to the dataset's limited variability or redundancy, the incredibly small coefficients and huge standard errors indicate that estimating associations is challenging.
+
+This model does not have multicollinearity, as evidenced by the fact that all predictors' GVIF values fall below the allowed level.
+
+### Recommendations
+
+The weak differentiation and absence of relevant factors in this model prevent it from producing insightful results. It is advised that you look into other modeling techniques.
+Get more information to increase predictive power and variability.
+To obtain more insightful predictors, take into account feature engineering.
+
+
+
+# References  
+
+- R Documentation (n.d.). *glm function*. Available at: <https://stat.ethz.ch/R-manual/R-devel/library/stats/html/glm.html> (Accessed: [insert date here]).
+- CRAN Documentation (n.d.). *car package*. Available at: <https://cran.r-project.org/web/packages/car/car.pdf> (Accessed: [insert date here]).
+- RStudio (n.d.). *R Markdown Guide*. Available at: <https://rmarkdown.rstudio.com/> (Accessed: [insert date here]).
+- OpenAI (n.d.). *ChatGPT*. Utilized for explanation refinement, code structure, and clarity.
+- Lab Material: 
+  - "lab8n-part2-a-solution.Rmd" 
+  - "lab8n-part2-b-solution.Rmd" 
+  - "lab8n-part2-c-solution.Rmd" 
+  - "CS5702_W5_Lab (2).Rmd" - Provided guidance for structuring exploratory analysis and modeling methodology. 
+   @Article{,
+    title = {pROC: an open-source package for R and S+ to analyze and compare ROC curves},
+    author = {Xavier Robin and Natacha Turck and Alexandre Hainard and Natalia Tiberti and Frédérique Lisacek and Jean-Charles Sanchez and Markus Müller},
+    year = {2011},
+    journal = {BMC Bioinformatics},
+    volume = {12},
+    pages = {77},
+  }
+> 
